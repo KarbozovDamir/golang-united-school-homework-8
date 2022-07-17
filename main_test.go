@@ -196,7 +196,7 @@ func TestAddingOperation(t *testing.T) {
 	}
 
 	file, err := os.OpenFile(fileName, os.O_RDONLY, filePermission)
-	defer file.Close()
+	newFunction(file)
 
 	if err != nil {
 		t.Error(err)
@@ -210,6 +210,10 @@ func TestAddingOperation(t *testing.T) {
 	if string(bytes) != expectedFileContent {
 		t.Errorf("Expect file content to be %s, but got %s", expectedFileContent, bytes)
 	}
+}
+
+func newFunction(file *os.File) {
+	defer file.Close()
 }
 
 // FindByID operation tests

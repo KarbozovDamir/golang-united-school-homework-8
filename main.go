@@ -62,8 +62,7 @@ func Perform(args Arguments, writer io.Writer) error {
 			return fmt.Errorf("-id flag has to be specified")
 		}
 		operation = findById
-	default:
-		return fmt.Errorf("Operation %s not allowed!", args["operation"])
+
 	}
 
 	err := operation(args, writer)
@@ -74,44 +73,32 @@ func Perform(args Arguments, writer io.Writer) error {
 }
 
 func add(args Arguments, writer io.Writer) error {
-	item := []byte(args["item"])
-	filename := args["fileName"]
-	users := make([]User, 0)
-	newUser := User{}
+	var user User
+	json.Unmarshal([]byte(args["item"]), &user)
 
-	err := json.Unmarshal(item, &newUser)
-	content, err := readFile(filename)
+	file, err := os.Open(args["fileName"])
 	if err != nil {
-		return err
+		panic(err)
 	}
 
-	if len(content) > 0 {
-		err = json.Unmarshal(content, &users)
-		if err != nil {
-			return nil
-		}
-	}
-
-	for _, v := range users {
-		if v.Id == newUser.Id {
-			message := fmt.Sprintf("Item with id %s already exists", v.Id)
-			writer.Write([]byte(message))
-			return nil
-		}
-	}
-
-	users = append(users, newUser)
-	data, err := json.Marshal(users)
+	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
-	err = writeFile(filename, 0644, data)
+	var users []User
+	json.Unmarshal(data, &users)
+	users = append(users, user)
+
+	data, err = json.Marshal(users)
 	if err != nil {
-		return err
+		panic(err)
 	}
-
-	return nil
+	err = ioutil.WriteFile(args["filename"], data, 0644)
+	if err != nil {
+		panic(err)
+	}
+	return err
 }
 
 func list(args Arguments, writer io.Writer) error {
@@ -161,36 +148,35 @@ func remove(args Arguments, writer io.Writer) error {
 }
 
 func findById(args Arguments, writer io.Writer) error {
-	userId := args["id"]
-	filename := args["fileName"]
-
-	users := make([]User, 0)
-
-	content, err := readFile(filename)
+	file, err := os.Open(args["id"])
 	if err != nil {
-		return err
+		panic(err)
+	}
+	defer file.Close()
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		panic(err)
 	}
 
-	err = json.Unmarshal(content, &users)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
+	var users []User
+	json.Unmarshal(data, &users)
 
-	for _, t := range users {
-		if t.Id == userId {
-			message := fmt.Sprintf("{\"id\":\"%s\",\"email\":\"%s\",\"age\":%v}", t.Id, t.Email, t.Age)
-			writer.Write([]byte(message))
-			return nil
+	for _, el := range users {
+		if el.Id == args["id"] {
+			data, err := json.Marshal(el)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Fprintln(writer, string(data))
+			return err
 		}
 	}
-
 	return err
 }
 
 func readFile(filename string) ([]byte, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
-	defer file.Close()
+
 	if err != nil {
 		return nil, err
 	}
